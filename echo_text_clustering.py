@@ -25,6 +25,8 @@
 import nsNLP
 import numpy as np
 from tools.functions import create_tokenizer
+import os
+
 
 ####################################################
 # Functions
@@ -46,6 +48,62 @@ def converter_in(converters_desc, converter):
     # end for
     return False
 # end converter_in
+
+
+# Create directory
+def create_directories(output_directory, xp_name):
+    """
+    Create image directory
+    :return:
+    """
+    # Directories
+    image_directory = os.path.join(output_directory, xp_name, "images")
+    texts_directory = os.path.join(output_directory, xp_name, "texts")
+
+    # Create if does not exists
+    if not os.path.exists(image_directory):
+        os.mkdir(image_directory)
+    # end if
+
+    # Create if does not exists
+    if not os.path.exists(texts_directory):
+        os.mkdir(texts_directory)
+    # end if
+
+    return image_directory, texts_directory
+# end create_directories
+
+
+# Save embedding images
+def save_embedding_images():
+    """
+    Save embedding images
+    :param text_vectors:
+    :param size:
+    :param desc_info:
+    :return:
+    """
+    # Embeddings
+    embeddings = nsNLP.embeddings.Embeddings(reservoir_size+1)
+
+    # For each vectors
+    for text in text_embeddings.keys():
+        embeddings.add(text, text_embeddings[text])
+        embeddings.set(text, 'count', 1)
+    # end for
+
+    # Export image of reduced vectors with TSNE
+    embeddings.wordnet('count',
+                       os.path.join(image_directory, u"wordnet_TSNE_" + unicode(w_index) + u".png"),
+                       n_words=args.n_authors*100,
+                       fig_size=args.fig_size, reduction='TSNE', info=desc_info)
+
+    # Export image of reduced vectors with PCA
+    embeddings.wordnet('count',
+                       os.path.join(image_directory, u"wordnet_PCA_" + unicode(w_index) + u".png"),
+                       n_words=args.n_authors*100,
+                       fig_size=args.fig_size, reduction='PCA', info=desc_info)
+# end save_embeddings_images
 
 ####################################################
 # Main function
@@ -94,7 +152,7 @@ if __name__ == "__main__":
                       extended=True, default="1")
 
     # Tokenizer and clustering parameters
-    args.add_argument(command="--distance", name="Distance", type=str, help="Distance measure to use", default='cosine',
+    args.add_argument(command="--distance", name="distance", type=str, help="Distance measure to use", default='cosine',
                       extended=True)
     args.add_argument(command="--tokenizer", name="tokenizer", type=str,
                       help="Which tokenizer to use (spacy, nltk, spacy-tokens)", default='nltk', extended=False)
@@ -102,6 +160,8 @@ if __name__ == "__main__":
                       extended=False)
 
     # Experiment output parameters
+    args.add_argument(command="--fig-size", name="fig_size", help="Figure size (pixels)", type=float, default=1024.0,
+                      extended=False)
     args.add_argument(command="--name", name="name", type=str, help="Experiment's name", extended=False, required=True)
     args.add_argument(command="--description", name="description", type=str, help="Experiment's description",
                       extended=False, required=True)
@@ -115,6 +175,9 @@ if __name__ == "__main__":
 
     # Parse arguments
     args.parse()
+
+    # Create image directory
+    image_directory, texts_directory = create_directories(args.output, args.name)
 
     # Corpus
     reteursC50 = nsNLP.data.Corpus(args.dataset)
@@ -130,7 +193,7 @@ if __name__ == "__main__":
         args.description,
         args.get_space(),
         args.n_samples,
-        args.k,
+        1,
         verbose=args.verbose
     )
 
@@ -158,11 +221,6 @@ if __name__ == "__main__":
 
     # Create W matrix
     w = nsNLP.esn_models.ESNTextClassifier.w(rc_size=rc_size, rc_w_sparsity=rc_w_sparsity)
-
-    # Save classifier
-    if args.keep_w:
-        xp.save_object(u"w", w)
-    # end if
 
     # W index
     w_index = 0
@@ -203,6 +261,9 @@ if __name__ == "__main__":
             # Set sample
             xp.set_sample_state(n)
 
+            # Description
+            desc_info = u"{}-{}".format(space, n)
+
             # Create ESN text classifier
             classifier = nsNLP.esn_models.ESNTextClassifier.create\
             (
@@ -237,19 +298,33 @@ if __name__ == "__main__":
             # Extract text embeddings
             text_embeddings = classifier.get_embeddings()
 
+            # Save embedding images
+            save_embedding_images()
+
             # Clustering
-            clustering = nsNLP.clustering.Clustering()
+            clustering = nsNLP.clustering.Clutering()
+
+            # Add each text
+            for text_title in text_list:
+                clustering.add(reteursC50.get_by_title(text_title), text_embeddings[text_title])
+            # end for
 
             # Compute clusters
-            clusters = clustering.clusters()
+            clusters = clustering.k_means(k=args.n_authors)
+
+            # Compute Bcubed
+            result = nsNLP.measures.Clustering().bcubed_f1(clusters)
+
+            # Save result
+            xp.add_result(result)
 
             # Delete classifier
             del classifier
             del clustering
-        # end for samples
 
-        # W index
-        w_index += 1
+            # W index
+            w_index += 1
+        # end for samples
 
         # Last space
         last_space = space

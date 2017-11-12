@@ -84,7 +84,7 @@ def save_embedding_images():
     :return:
     """
     # Embeddings
-    embeddings = nsNLP.embeddings.Embeddings((reservoir_size*args.state_gram)+1)
+    embeddings = nsNLP.embeddings.Embeddings((reservoir_size*state_gram)+1)
 
     # For each vectors
     for text in text_embeddings.keys():

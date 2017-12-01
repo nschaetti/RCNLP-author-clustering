@@ -309,14 +309,13 @@ if __name__ == "__main__":
                 clustering.add(reteursC50.get_by_title(text_title), text_embeddings[text_title])
             # end for
 
-            # Compute clusters
+            # Compute K-mean clusters, and save Bcubed
             clusters = clustering.k_means(k=args.n_authors)
-
-            # Compute Bcubed
             result = nsNLP.measures.Clustering().bcubed_f1(clusters)
-
-            # Save result
             xp.add_result(result)
+
+            # Compute hierarchical clusters, and save dendrogram
+            linkage_matrix = clustering.hierarchical_clustering(os.path.join(image_directory, u"dendrogram_" + unicode(w_index) + u".png"))
 
             # Delete classifier
             del classifier

@@ -176,9 +176,6 @@ if __name__ == "__main__":
     # Parse arguments
     args.parse()
 
-    # Create image directory
-    image_directory, texts_directory = create_directories(args.output, args.name)
-
     # Corpus
     reteursC50 = nsNLP.data.Corpus(args.dataset)
 
@@ -196,6 +193,9 @@ if __name__ == "__main__":
         1,
         verbose=args.verbose
     )
+
+    # Create image directory
+    image_directory, texts_directory = create_directories(args.output, args.name)
 
     # Author list
     authors = reteursC50.get_authors()[:args.n_authors]
